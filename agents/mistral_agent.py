@@ -49,7 +49,8 @@ class MistralAgent(BaseAgent):
                 available_actions = actors_dict[actor_id]['available_actions']
                 if available_actions:
                     # Query LLM To Get action_name
-                    action_name = self.choose_action(available_actions)
+                    action_name = self.llm_choose_action_from_actor_info(actors_dict[actor_id])
+                    #action_name = self.llm_choose_random_action(available_actions)
                     #action_name = random.choice(available_actions)
                     self.planned_actor_ids.append(actor_id)
                     return (ctrl_type, actor_id, action_name)
@@ -77,7 +78,7 @@ class MistralAgent(BaseAgent):
 
         return response.choices[0].message.content.strip()
               
-    def choose_action(self, available_actions):
+    def llm_choose_random_action(self, available_actions):
         """
         Query the LLM with the list of available_actions. The prompt instructs 
         the LLM to pick one action randomly and return it in a structured JSON 
@@ -122,5 +123,46 @@ class MistralAgent(BaseAgent):
 
         return action_name
 
+    def llm_choose_action_from_actor_info(self, actor):
+        """
 
+        """
+
+        available_actions = actor['available_actions']
+        actor_name = actor['name']
+        # Create a structured prompt asking the model to choose one action from the list
+        prompt = f"""
+        You are an AI provided with the following character information
+        {actor}
+
+        Your task: pick a single action at random from this list and reply using ONLY the following JSON structure:
+
+        {{
+        "action_name": "<SELECTED_ACTION>"
+        }}
+
+        Remember, you Having the Following actions
+        {available_actions}
+
+        No additional commentary. No explanations. Return valid JSON only.
+        """
+
+        llm_output = self.query_llm(prompt)
+        # Extract text from LLM response
+
+        # Try to parse JSON from the LLM's response
+        try:
+            parsed = json.loads(llm_output)
+            action_name = parsed.get("action_name")
+            # Validate that the selected action is in the list
+            if action_name not in available_actions:
+                raise ValueError(f"LLM chose an invalid action: {action_name}: {actor_name}")
+            print(f"LLM chose action for {actor_name}: {action_name}")
+        except (json.JSONDecodeError, ValueError, KeyError):
+            # If parsing fails or LLM picks an invalid action, 
+            # fall back to random choice from the list
+            action_name = random.choice(available_actions)
+            print(f"LLM failed to parse JSON, falling back to random choice for {actor_name}: {action_name}")
+
+        return action_name
     
