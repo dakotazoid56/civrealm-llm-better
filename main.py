@@ -17,7 +17,7 @@ import pickle
 import warnings
 import gymnasium
 import civrealm
-from agents import RandomLLMAgent
+from agents import RandomLLMAgent, MistralAgent
 from civrealm.freeciv.utils.freeciv_logging import fc_logger
 from civrealm.configs import fc_args
 from civrealm.envs.freeciv_wrapper.llm_wrapper import LLMWrapper
@@ -38,7 +38,7 @@ def main():
     """
     env = gymnasium.make('civrealm/FreecivLLM-v0')
     #env = LLMWrapper(env)
-    agent = RandomLLMAgent()
+    agent = MistralAgent()
     # agent = BaseLangAgent()
 
     observations, info = env.reset()

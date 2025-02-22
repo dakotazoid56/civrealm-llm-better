@@ -1,1 +1,2 @@
 from .random_language_agent import RandomLLMAgent
+from .mistral_agent import MistralAgent
