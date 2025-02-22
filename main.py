@@ -17,7 +17,7 @@ import pickle
 import warnings
 import gymnasium
 import civrealm
-from agents import BaselineLanguageAgent, AutoGPTAgent, BaseLangAgent, MastabaAgent
+from agents import RandomLLMAgent
 from civrealm.freeciv.utils.freeciv_logging import fc_logger
 from civrealm.configs import fc_args
 from civrealm.envs.freeciv_wrapper.llm_wrapper import LLMWrapper
@@ -37,7 +37,8 @@ def main():
     Starts a single-player Freeciv game against rule-based AI.
     """
     env = gymnasium.make('civrealm/FreecivLLM-v0')
-    agent = MastabaAgent(max_deconflict_depth=3)
+    #env = LLMWrapper(env)
+    agent = RandomLLMAgent()
     # agent = BaseLangAgent()
 
     observations, info = env.reset()
