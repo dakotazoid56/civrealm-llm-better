@@ -18,6 +18,10 @@ import random
 import os
 import json
 import time
+from datetime import datetime
+import shutil
+
+
 from mistralai import Mistral
 from civrealm.agents.base_agent import BaseAgent
 from civrealm.configs import fc_args
@@ -26,6 +30,7 @@ model = "mistral-large-latest"
 api_key = os.environ["MISTRAL_API_KEY"]
 client = Mistral(api_key=api_key)
 
+save_directory = os.path.join(os.getcwd(), "saved_dialogues")
 
 class MistralAgent(BaseAgent):
     def __init__(self):
@@ -36,6 +41,8 @@ class MistralAgent(BaseAgent):
         else:
             if "debug.agentseed" in fc_args:
                 self.set_agent_seed(fc_args["debug.agentseed"])
+
+        clear_saved_dialogues_folder()  #Remove previous run data
 
     def act(self, observation, info):
         if info['turn'] != self.turn:
@@ -127,42 +134,72 @@ class MistralAgent(BaseAgent):
         """
 
         """
-
         available_actions = actor['available_actions']
         actor_name = actor['name']
+        
         # Create a structured prompt asking the model to choose one action from the list
         prompt = f"""
-        You are an AI provided with the following character information
-        {actor}
+        You are an AI playing a Civilization-style game.
+        Your task: Achieve Total World Domination. Expand, explore, and multiply as fast as possible.
 
-        Your task: pick a single action at random from this list and reply using ONLY the following JSON structure:
+        You are the following character:
+        {json.dumps(actor, indent=4)}
 
+        You must choose an action from the available actions:
+
+        {json.dumps(available_actions, indent=4)}
+
+        **IMPORTANT**: Your response must be a valid JSON object with the following structure:
+
+        ```json
         {{
-        "action_name": "<SELECTED_ACTION>"
+            "reasoning": "<EXPLANATION_OF_WHY_THIS_ACTION_WAS_CHOSEN>",
+            "action_name": "<SELECTED_ACTION>"
         }}
+        ```
 
-        Remember, you Having the Following actions
-        {available_actions}
+        - Do not provide any additional commentary.
+        - Do not include markdown formatting like ```json.
+        - Return only a valid JSON object.
 
-        No additional commentary. No explanations. Return valid JSON only.
         """
 
         llm_output = self.query_llm(prompt)
+        
         # Extract text from LLM response
-
-        # Try to parse JSON from the LLM's response
         try:
-            parsed = json.loads(llm_output)
+            parsed = json.loads(llm_output.strip())  # Ensure clean JSON parsing
             action_name = parsed.get("action_name")
+
             # Validate that the selected action is in the list
             if action_name not in available_actions:
-                raise ValueError(f"LLM chose an invalid action: {action_name}: {actor_name}")
+                raise ValueError(f"LLM chose an invalid action: {action_name} for {actor_name}")
+
             print(f"LLM chose action for {actor_name}: {action_name}")
+
         except (json.JSONDecodeError, ValueError, KeyError):
             # If parsing fails or LLM picks an invalid action, 
             # fall back to random choice from the list
             action_name = random.choice(available_actions)
             print(f"LLM failed to parse JSON, falling back to random choice for {actor_name}: {action_name}")
 
+        # Create the filename with actor_name, turn number, and timestamp
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"{actor_name}_Turn{self.turn}_{timestamp}.txt"
+        filepath = os.path.join(save_directory, filename)
+
+        # Ensure the directory exists
+        os.makedirs(save_directory, exist_ok=True)
+
+        # Save prompt and llm_output to file
+        with open(filepath, "w", encoding="utf-8") as file:
+            file.write(f"Prompt:\n{prompt}\n\nLLM Output:\n{llm_output}")
+
         return action_name
+
     
+
+def clear_saved_dialogues_folder():
+    if os.path.exists(save_directory):
+        shutil.rmtree(save_directory)  # Remove the directory and all its contents
+    os.makedirs(save_directory)  # Recreate an empty directory
